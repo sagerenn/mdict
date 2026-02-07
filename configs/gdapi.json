@@ -1,0 +1,19 @@
+{
+  "listen": ":8080",
+  "read_timeout": 5000000000,
+  "write_timeout": 30000000000,
+  "shutdown_timeout": 10000000000,
+  "log": {
+    "level": "info"
+  },
+  "dictionaries": [
+    {
+      "id": "sample",
+      "name": "Sample Dictionary",
+      "type": "tsv",
+      "path": "./data/sample.tsv",
+      "delimiter": "\t",
+      "case_fold": true
+    }
+  ]
+}

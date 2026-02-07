@@ -1,0 +1,198 @@
+openapi: 3.0.3
+info:
+  title: gdapi
+  version: 0.1.0
+  description: Minimal REST API for dictionary lookup (pure Go, cgo-free)
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  time:
+                    type: string
+                    format: date-time
+  /dicts:
+    get:
+      summary: List dictionaries
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+  /lookup:
+    get:
+      summary: Lookup exact word
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: dict
+          required: false
+          schema:
+            type: string
+          description: Comma-separated dictionary IDs
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    type: string
+                  count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        dict_id:
+                          type: string
+                        dict_name:
+                          type: string
+                        entries:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              word:
+                                type: string
+                              definition:
+                                type: string
+        "400":
+          description: Missing query
+  /prefix:
+    get:
+      summary: Prefix suggestions
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: dict
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    type: string
+                  count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        dict_id:
+                          type: string
+                        dict_name:
+                          type: string
+                        words:
+                          type: array
+                          items:
+                            type: string
+        "400":
+          description: Missing query
+  /search:
+    get:
+      summary: Substring search
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: dict
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    type: string
+                  count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        dict_id:
+                          type: string
+                        dict_name:
+                          type: string
+                        words:
+                          type: array
+                          items:
+                            type: string
+        "400":
+          description: Missing query
+  /debug/vars:
+    get:
+      summary: expvar metrics
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
