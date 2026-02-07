@@ -7,12 +7,7 @@ ARG TARGETVARIANT
 WORKDIR /src
 
 COPY go.mod go.sum ./
-COPY vendor ./vendor
-RUN if [ -d vendor ]; then \
-      go env -w GOFLAGS=-mod=vendor; \
-    else \
-      go mod download; \
-    fi
+RUN go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 \
