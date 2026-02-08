@@ -9,6 +9,7 @@ import (
 
 type Config struct {
 	Listen          string        `json:"listen"`
+	URLBasePath     string        `json:"url_base_path"`
 	ReadTimeout     time.Duration `json:"read_timeout"`
 	WriteTimeout    time.Duration `json:"write_timeout"`
 	ShutdownTimeout time.Duration `json:"shutdown_timeout"`

@@ -6,6 +6,59 @@ info:
 servers:
   - url: http://localhost:8080
 paths:
+  /resource:
+    get:
+      summary: Dictionary resource by query
+      parameters:
+        - in: query
+          name: dict
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: name
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Binary resource
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Missing dict or name
+        "404":
+          description: Resource not found
+  /resource/{name}:
+    get:
+      summary: Dictionary resource by path (supports subpaths)
+      parameters:
+        - in: query
+          name: dict
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+          description: Resource name or subpath (e.g. js/app.js)
+      responses:
+        "200":
+          description: Binary resource
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Missing dict or name
+        "404":
+          description: Resource not found
   /health:
     get:
       summary: Health check

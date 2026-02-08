@@ -5,15 +5,18 @@ import (
 	"expvar"
 	"html"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
+	"github.com/sagerenn/mdict/internal/dict"
 	"github.com/sagerenn/mdict/internal/observability"
 	"github.com/sagerenn/mdict/internal/service"
 )
 
 type Router struct {
-	svc *service.Service
+	svc      *service.Service
+	basePath string
 }
 
 type healthResponse struct {
@@ -42,22 +45,39 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
-func NewRouter(svc *service.Service, log *observability.Logger) http.Handler {
-	r := &Router{svc: svc}
+func NewRouter(svc *service.Service, log *observability.Logger, basePath string) http.Handler {
+	basePath = normalizeBasePath(basePath)
+	dict.SetURLBasePath(basePath)
+	r := &Router{svc: svc, basePath: basePath}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", r.handleHealth)
-	mux.HandleFunc("/dicts", r.handleDicts)
-	mux.HandleFunc("/lookup", r.handleLookup)
-	mux.HandleFunc("/prefix", r.handlePrefix)
-	mux.HandleFunc("/search", r.handleSearch)
-	mux.HandleFunc("/entry", r.handleEntry)
-	mux.HandleFunc("/resource", r.handleResource)
-	mux.Handle("/debug/vars", expvar.Handler())
+	r.handleRoute(mux, "/health", r.handleHealth)
+	r.handleRoute(mux, "/dicts", r.handleDicts)
+	r.handleRoute(mux, "/lookup", r.handleLookup)
+	r.handleRoute(mux, "/prefix", r.handlePrefix)
+	r.handleRoute(mux, "/search", r.handleSearch)
+	r.handleRoute(mux, "/entry", r.handleEntry)
+	r.handleRoute(mux, "/resource", r.handleResource)
+	r.handleRoute(mux, "/resource/", r.handleResource)
+	r.handle(mux, "/debug/vars", expvar.Handler())
 
 	h := observability.RequestIDMiddleware(mux)
 	h = observability.RecoveryMiddleware(log)(h)
 	h = observability.LoggingMiddleware(log)(h)
 	return h
+}
+
+func (r *Router) handleRoute(mux *http.ServeMux, path string, handler http.HandlerFunc) {
+	mux.HandleFunc(path, handler)
+	if r.basePath != "" {
+		mux.HandleFunc(r.basePath+path, handler)
+	}
+}
+
+func (r *Router) handle(mux *http.ServeMux, path string, handler http.Handler) {
+	mux.Handle(path, handler)
+	if r.basePath != "" {
+		mux.Handle(r.basePath+path, handler)
+	}
 }
 
 func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -159,6 +179,9 @@ func (r *Router) handleEntry(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleResource(w http.ResponseWriter, req *http.Request) {
 	dictID := strings.TrimSpace(req.URL.Query().Get("dict"))
 	name := strings.TrimSpace(req.URL.Query().Get("name"))
+	if name == "" {
+		name = resourceNameFromPath(req)
+	}
 	if dictID == "" || name == "" {
 		http.Error(w, "missing dict or name", http.StatusBadRequest)
 		return
@@ -174,6 +197,50 @@ func (r *Router) handleResource(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(data)
+}
+
+func resourceNameFromPath(req *http.Request) string {
+	if req == nil || req.URL == nil {
+		return ""
+	}
+	escapedPath := req.URL.EscapedPath()
+	if escapedPath == "" {
+		escapedPath = req.URL.Path
+	}
+	if base := dict.URLBasePath(); base != "" && strings.HasPrefix(escapedPath, base) {
+		escapedPath = strings.TrimPrefix(escapedPath, base)
+	}
+	if !strings.HasPrefix(escapedPath, "/resource/") {
+		return ""
+	}
+	raw := strings.TrimPrefix(escapedPath, "/resource/")
+	if raw == "" {
+		return ""
+	}
+	parts := strings.Split(raw, "/")
+	for i := range parts {
+		decoded, err := url.PathUnescape(parts[i])
+		if err != nil {
+			return ""
+		}
+		parts[i] = decoded
+	}
+	return strings.Join(parts, "/")
+}
+
+func normalizeBasePath(basePath string) string {
+	basePath = strings.TrimSpace(basePath)
+	if basePath == "" || basePath == "/" {
+		return ""
+	}
+	if !strings.HasPrefix(basePath, "/") {
+		basePath = "/" + basePath
+	}
+	basePath = strings.TrimRight(basePath, "/")
+	if basePath == "" {
+		return ""
+	}
+	return basePath
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

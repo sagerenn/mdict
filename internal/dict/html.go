@@ -9,14 +9,28 @@ import (
 
 var attrRe = regexp.MustCompile(`(?i)(\b(?:src|href)\s*=\s*)(\"|')([^\"']+)(\"|')`)
 
+var urlBasePath string
+
+func SetURLBasePath(basePath string) {
+	urlBasePath = normalizeURLBasePath(basePath)
+}
+
+func URLBasePath() string {
+	return urlBasePath
+}
+
 // EntryURL builds a local URL for HTML entry links.
 func EntryURL(dictID, word string) string {
-	return "/entry?dict=" + url.QueryEscape(dictID) + "&q=" + url.QueryEscape(word)
+	return withURLBasePath("/entry?dict=" + url.QueryEscape(dictID) + "&q=" + url.QueryEscape(word))
 }
 
 // ResourceURL builds a local URL for HTML resource links.
 func ResourceURL(dictID, name string) string {
-	return "/resource?dict=" + url.QueryEscape(dictID) + "&name=" + url.QueryEscape(name)
+	clean := CleanResourceName(name)
+	if clean == "" {
+		return withURLBasePath("/resource?dict=" + url.QueryEscape(dictID) + "&name=" + url.QueryEscape(name))
+	}
+	return withURLBasePath("/resource/" + encodeResourcePath(clean) + "?dict=" + url.QueryEscape(dictID))
 }
 
 // RewriteResourceLinks rewrites src/href URLs to local endpoints when possible.
@@ -55,9 +69,15 @@ func rewriteURL(rawURL, dictID string) string {
 	if u == "" {
 		return rawURL
 	}
+	resourcePrefix := withURLBasePath("/resource")
+	entryPrefix := withURLBasePath("/entry")
 
 	// Preserve anchors and already rewritten paths.
-	if strings.HasPrefix(u, "#") || strings.HasPrefix(u, "/resource") || strings.HasPrefix(u, "/entry") {
+	if strings.HasPrefix(u, "#") ||
+		strings.HasPrefix(u, "/resource") ||
+		strings.HasPrefix(u, "/entry") ||
+		strings.HasPrefix(u, resourcePrefix) ||
+		strings.HasPrefix(u, entryPrefix) {
 		return rawURL
 	}
 
@@ -117,9 +137,46 @@ func CleanResourceName(name string) string {
 	if decoded, err := url.PathUnescape(name); err == nil {
 		name = decoded
 	}
+	name = strings.ReplaceAll(name, "\\", "/")
 	clean := path.Clean("/" + name)
 	if strings.HasPrefix(clean, "/..") {
 		return ""
 	}
 	return strings.TrimPrefix(clean, "/")
+}
+
+func encodeResourcePath(name string) string {
+	parts := strings.Split(name, "/")
+	for i := range parts {
+		parts[i] = url.PathEscape(parts[i])
+	}
+	return strings.Join(parts, "/")
+}
+
+func withURLBasePath(path string) string {
+	if path == "" {
+		path = "/"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	if urlBasePath == "" {
+		return path
+	}
+	return urlBasePath + path
+}
+
+func normalizeURLBasePath(basePath string) string {
+	basePath = strings.TrimSpace(basePath)
+	if basePath == "" || basePath == "/" {
+		return ""
+	}
+	if !strings.HasPrefix(basePath, "/") {
+		basePath = "/" + basePath
+	}
+	basePath = strings.TrimRight(basePath, "/")
+	if basePath == "" {
+		return ""
+	}
+	return basePath
 }

@@ -34,6 +34,7 @@ CGO_ENABLED=0 go build ./cmd/gdapi
 ```json
 {
   "listen": ":8080",
+  "url_base_path": "/dict",
   "read_timeout": 5000000000,
   "write_timeout": 30000000000,
   "shutdown_timeout": 10000000000,
@@ -50,6 +51,8 @@ CGO_ENABLED=0 go build ./cmd/gdapi
   ]
 }
 ```
+
+`url_base_path` is optional. Set it when the API is served behind a reverse proxy path prefix (for example Caddy forwarding `/dict/*` to this service). When set to `/dict`, generated entry/resource links become `/dict/entry...` and `/dict/resource...`.
 
 ## Notes
 

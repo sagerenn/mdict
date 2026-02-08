@@ -39,7 +39,7 @@ func main() {
 	}
 
 	svc := service.New(reg)
-	h := httpx.NewRouter(svc, log)
+	h := httpx.NewRouter(svc, log, cfg.URLBasePath)
 
 	srv := &http.Server{
 		Addr:         cfg.Listen,
